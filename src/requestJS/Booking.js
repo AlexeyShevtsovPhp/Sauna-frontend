@@ -34,3 +34,28 @@ export async function fetchBookingsByDate(date, saunaId) {
     const data = await response.json();
     return data.bookings;
 }
+
+export async function getProfileBooking() {
+    const response = await fetch(`http://tytsauna.loc:8080/api/profile/saunas`, {
+        headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error('Ошибка загрузки бронирований');
+    }
+
+    return await response.json();
+}
+
+export async function deleteBooking(bookingId) {
+    const response = await fetch(`http://tytsauna.loc:8080/api/deleteBook/${bookingId}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+    });
+
+    if (!response.ok) {
+        throw new Error('Ошибка удаления бронирования');
+    }
+
+    return true;
+}

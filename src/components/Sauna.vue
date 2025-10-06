@@ -41,7 +41,6 @@ export default {
 
         return {
           sauna_id: this.sauna.id,
-          user_id: 1,
           start_time: this.formatLocalDateTime(start),
           end_time: this.formatLocalDateTime(end),
         };

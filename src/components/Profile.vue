@@ -1,7 +1,9 @@
 <script>
-import { getUserProfileInfo } from '../requestJS/UserInfo.js';
-import { updateUser } from '../requestJS/UpdateUser.js';
-import { uploadAvatar } from "../requestJS/UploadAvatar.js";
+import {getUserProfileInfo} from '../requestJS/UserInfo.js';
+import {updateUser} from '../requestJS/UpdateUser.js';
+import {uploadAvatar} from "../requestJS/UploadAvatar.js";
+import {getProfileBooking} from "../requestJS/Booking.js";
+import {deleteBooking} from '../requestJS/Booking.js';
 
 export default {
   name: 'UserProfile',
@@ -16,15 +18,13 @@ export default {
         phone: '',
         address: '',
       },
-      bookings: [
-        { id: 1, saunaName: 'Сауна «Березка»', time: '12:00 - 14:00' },
-        { id: 2, saunaName: 'Сауна «Лесная»', time: '16:00 - 18:00' },
-        { id: 3, saunaName: 'Сауна «Водопад»', time: '20:00 - 22:00' },
-      ],
+      bookings: [],
       selectedBookingId: null,
       notification: '',
       notificationType: '',
       initialProfileData: {},
+      loadingBookings: true,
+      errorMessage: '',
     };
   },
   methods: {
@@ -48,7 +48,15 @@ export default {
     },
 
     selectBooking(id) {
-      this.selectedBookingId = id;
+      this.selectedBookingId = this.selectedBookingId === id ? null : id;
+    },
+
+    async removeBooking(id) {
+      await deleteBooking(id);
+      if (this.selectedBookingId === id) {
+        this.selectedBookingId = null;
+      }
+      await this.fetchBookings();
     },
 
     saveProfile() {
@@ -69,23 +77,14 @@ export default {
             .then(() => updateUser(userData))
             .then((response) => {
               console.log(response);
-              if (avatarUpdated) {
-                window.location.reload();
-              } else {
-                this.showNotification('Изменения сохранены', 'success');
-                this.initialProfileData = { ...this.profile };
-              }
-            })
-            .catch((error) => {
-              console.log(error);
-              this.showNotification('Ошибка при обновлении профиля', 'error');
+              window.location.reload();
             });
       } else {
         updateUser(userData)
             .then((response) => {
               console.log(response);
               this.showNotification('Изменения сохранены', 'success');
-              this.initialProfileData = { ...this.profile };
+              this.initialProfileData = {...this.profile};
             })
             .catch((error) => {
               console.log(error);
@@ -93,6 +92,22 @@ export default {
             });
       }
     },
+
+    formatDate(datetimeStr) {
+      const date = new Date(datetimeStr);
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+    },
+
+    formatTime(datetimeStr) {
+      const date = new Date(datetimeStr);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    },
+
 
     triggerFileInput() {
       this.$refs.avatarInput.click();
@@ -105,15 +120,32 @@ export default {
         this.profile.avatar = URL.createObjectURL(file);
       }
     },
+
+    fetchBookings() {
+      this.loadingBookings = true;
+
+      getProfileBooking()
+          .then((response) => {
+            this.bookings = response || [];
+            this.loadingBookings = false;
+          })
+          .catch((error) => {
+            this.loadingBookings = false;
+            this.errorMessage = 'Ошибка при загрузке бронирований';
+            console.error(error);
+          });
+    },
   },
 
   mounted() {
     getUserProfileInfo().then((response) => {
       if (response.success) {
-        this.initialProfileData = { ...response.user };
-        this.profile = { ...this.initialProfileData };
+        this.initialProfileData = {...response.user};
+        this.profile = {...this.initialProfileData};
       }
     });
+
+    this.fetchBookings();
   },
 
   computed: {
@@ -141,7 +173,7 @@ export default {
           role="button"
           aria-label="Загрузить аватар"
       >
-        <img :src="profile.avatar" alt="Аватар пользователя" class="avatar" />
+        <img :src="profile.avatar" alt="Аватар пользователя" class="avatar"/>
         <div class="avatar-overlay">
           <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -173,15 +205,15 @@ export default {
       <div class="user-form">
         <div class="form-group">
           <label for="firstName">Имя</label>
-          <input v-model="profile.name" id="firstName" type="text" placeholder="Введите имя" />
+          <input v-model="profile.name" id="firstName" type="text" placeholder="Введите имя"/>
         </div>
         <div class="form-group">
           <label for="lastName">Фамилия</label>
-          <input v-model="profile.lastName" id="lastName" type="text" placeholder="Введите фамилию" />
+          <input v-model="profile.lastName" id="lastName" type="text" placeholder="Введите фамилию"/>
         </div>
         <div class="form-group">
           <label for="middleName">Отчество</label>
-          <input v-model="profile.middleName" id="middleName" type="text" placeholder="Введите отчество" />
+          <input v-model="profile.middleName" id="middleName" type="text" placeholder="Введите отчество"/>
         </div>
       </div>
     </div>
@@ -189,15 +221,15 @@ export default {
     <div class="user-contact-section">
       <div class="form-group">
         <label for="email">Email</label>
-        <input v-model="profile.email" id="email" type="email" placeholder="example@mail.com" />
+        <input v-model="profile.email" id="email" type="email" placeholder="example@mail.com"/>
       </div>
       <div class="form-group">
         <label for="phone">Телефон</label>
-        <input v-model="profile.phone" id="phone" type="tel" placeholder="+7 (999) 123-45-67" />
+        <input v-model="profile.phone" id="phone" type="tel" placeholder="+7 (999) 123-45-67"/>
       </div>
       <div class="form-group">
         <label for="address">Адрес</label>
-        <input v-model="profile.address" id="address" type="text" placeholder="Город, улица, дом" />
+        <input v-model="profile.address" id="address" type="text" placeholder="Город, улица, дом"/>
       </div>
     </div>
 
@@ -213,18 +245,36 @@ export default {
     </div>
 
     <h3 class="bookings-title">Забронированные бани</h3>
-    <div class="bookings-list">
-      <div
-          v-for="booking in bookings"
-          :key="booking.id"
-          class="booking-card"
-          @click="selectBooking(booking.id)"
-          :class="{ selected: booking.id === selectedBookingId }"
-          tabindex="0"
-          role="button"
-      >
-        <div class="booking-name">{{ booking.saunaName }}</div>
-        <div class="booking-time">{{ booking.time }}</div>
+    <div class="bookings-list-wrapper">
+      <div class="bookings-list">
+        <template v-if="bookings.length > 0">
+          <div
+              v-for="(booking, index) in bookings"
+              :key="booking.sauna?.id || index"
+              class="booking-card"
+              :class="{ selected: booking.sauna?.id === selectedBookingId }"
+              tabindex="0"
+              role="button"
+              @click="booking.sauna && selectBooking(booking.sauna.id)"
+          >
+            <div class="booking-name">{{ booking.sauna?.name || 'Пусто' }}</div>
+            <div class="booking-time" v-if="booking.time">
+              {{ formatTime(booking.time.start_time) }} - {{ formatTime(booking.time.end_time) }}
+            </div>
+            <div class="booking-date" v-if="booking.time">
+              {{ formatDate(booking.time.start_time) }}
+            </div>
+
+            <button
+                v-if="booking.sauna?.id === selectedBookingId"
+                class="delete-booking-button"
+                @click.stop="removeBooking(booking.sauna.id)"
+            >
+              Удалить
+            </button>
+          </div>
+        </template>
+        <div v-else class="no-bookings">Пусто</div>
       </div>
     </div>
   </div>
@@ -282,12 +332,88 @@ export default {
   }
 }
 
+.no-bookings {
+  padding: 1rem;
+  color: #777;
+  font-style: italic;
+  text-align: center;
+}
+
+.bookings-list-wrapper {
+  max-height: 310px;
+  overflow-y: auto;
+  border-radius: 8px;
+  padding: 12px;
+  background-color: #f9fafc;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e0e3e7;
+}
+
+.booking-card {
+  padding: 0.8rem 1.5rem;
+  border-radius: 14px;
+  background-color: #fff;
+  border: 1px solid #d1d5db;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.booking-card:hover,
+.booking-card:focus {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: #3b82f6;
+  outline: none;
+}
+
+.booking-card.selected {
+  border-color: #2563eb;
+  background-color: #e0e7ff;
+}
+
 .save-button:disabled,
 .button-disabled {
   background-color: #e2e8f0;
   color: #9ca3af;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+.delete-booking-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0.35rem 0.8rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #fff;
+  background-color: #e53e3e;
+  border: none;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(229, 62, 62, 0.4);
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  user-select: none;
+}
+
+.delete-booking-button:hover {
+  background-color: #c53030;
+}
+
+.delete-booking-button:focus-visible {
+  outline: 2px solid #f56565;
+  outline-offset: 2px;
+}
+
+.delete-booking-button svg {
+  width: 14px;
+  height: 14px;
+  stroke: white;
+  stroke-width: 2;
+  fill: none;
 }
 
 .save-button:disabled:hover,
@@ -455,31 +581,6 @@ input::placeholder {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-}
-
-.booking-card {
-  padding: 0.8rem 1.5rem;
-  border-radius: 14px;
-  background-color: #fff;
-  border: 1px solid #d1d5db;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-  transition: box-shadow 0.2s ease, border-color 0.2s ease;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.booking-card:hover,
-.booking-card:focus {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: #3b82f6;
-  outline: none;
-}
-
-.booking-card.selected {
-  border-color: #2563eb;
-  background-color: #e0e7ff;
 }
 
 .booking-name {
