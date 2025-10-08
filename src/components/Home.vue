@@ -1,36 +1,27 @@
-<script>
-import {getSaunas} from '../requestJS/SaunaListFetch.js';
-export default {
-  data() {
-    return {
-      saunaList: [],
-    }
-  },
-  methods: {
+<script setup>
+import { ref, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
+import { getSaunas } from '../requestJS/SaunaListFetch.js';
 
-    goToSauna(sauna) {
-      this.$router.push({ name: 'sauna', params: { id: sauna.id } });
-    },
+const router = useRouter();
+const saunaList = ref([]);
 
-    parseFirstPicture(picture) {
-      if (!picture) return '';
-      const arr = JSON.parse(picture);
-      return arr[0] || '';
-    }
-  },
-
-  mounted() {
-    getSaunas().then(response => {
-      if (response.success) {
-        this.saunaList = response.data;
-      }
-    });
-  },
-
-  computed: {
-  }
+function goToSauna(sauna) {
+  router.push({ name: 'sauna', params: { id: sauna.id } });
 }
 
+function parseFirstPicture(picture) {
+  if (!picture) return '';
+    const arr = JSON.parse(picture);
+    return arr[0] || '';
+}
+
+onMounted(async () => {
+  const response = await getSaunas();
+  if (response.success) {
+    saunaList.value = response.data;
+  }
+});
 </script>
 
 <template>
@@ -42,7 +33,12 @@ export default {
         @click="goToSauna(sauna)"
     >
       <div class="sauna-image-placeholder">
-        <img :src="parseFirstPicture(sauna.picture)" alt="Изображение сауны" />
+        <el-image
+            :src="parseFirstPicture(sauna.picture)"
+            alt="Изображение сауны"
+            fit="cover"
+            style="width: 100%; height: 120px;"
+        />
       </div>
       <div class="sauna-name">{{ sauna.name }}</div>
     </div>

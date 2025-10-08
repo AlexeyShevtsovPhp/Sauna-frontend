@@ -5,6 +5,7 @@ import Registration from "../components/Registration.vue";
 import Home from "../components/Home.vue";
 import Sauna from "../components/Sauna.vue";
 import Profile from "../components/Profile.vue";
+import About from "../components/About.vue";
 
 const routes = [
     {
@@ -30,6 +31,11 @@ const routes = [
                 path: 'profile',
                 component: Profile,
                 meta: { title: 'Личный кабинет' }
+            },
+            {
+                path: 'about',
+                component: About,
+                meta: { title: 'О нас' }
             },
         ]
     },

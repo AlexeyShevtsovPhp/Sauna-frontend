@@ -1,71 +1,99 @@
-<script>
-import {login} from "../requestJS/Authorization.js";
+<script setup>
+import { login } from "../requestJS/Authorization.js";
+import { useRouter } from 'vue-router';
+import { reactive, ref } from 'vue';
+import { ElNotification } from "element-plus";
 
-export default {
-  data() {
-    return {
-      name: '',
-      password: '',
-      showError: false,
-      errorMessage: ''
-    }
-  },
-  methods: {
-    goToRegistration() {
-      this.$router.push('/registration');
-    },
+const formRef = ref(null);
+const form = reactive({
+  name: '',
+  password: ''
+});
 
-    async submitForm() {
-      const response = await login(this.name, this.password);
+const rules = {
+  name: [
+    { required: true, message: 'Пожалуйста, введите логин', trigger: 'change' }
+  ],
+  password: [
+    { required: true, message: 'Пожалуйста, введите пароль', trigger: 'change' }
+  ]
+};
 
-      if (response.success) {
-        window.location.href = '/main';
-      } else if (response.errors) {
-        this.showError = true;
-        this.errorMessage = String(Object.values(response.errors)[0]);
-        setTimeout(() => (this.showError = false), 3000);
-      } else {
-        this.showError = true;
-        this.errorMessage = 'Неверный логин или пароль';
+const router = useRouter();
 
-        this.name = '';
-        this.password = '';
-
-        setTimeout(() => (this.showError = false), 3000);
-      }
-    }
-  }
+function goToRegistration() {
+  router.push('/registration');
 }
 
+async function submitForm() {
+  const valid = await formRef.value.validate();
+  if (!valid) return;
+
+  const response = await login(form.name, form.password);
+
+  if (response.success) {
+    window.location.href = '/main';
+  } else {
+    ElNotification({
+      title: 'Ошибка',
+      message: 'Неверный логин или пароль',
+      type: 'error',
+    });
+  }
+}
 </script>
 
 <template>
   <div class="body-wrapper">
-  <div class="container">
+    <div class="container">
+      <div class="form-container">
+        <h1 class="title">
+          Добро пожаловать<br />
+          <span>в баню</span>
+        </h1>
 
-    <div
-        class="notification-wrong"
-        v-show="showError"
-        style="display: block;"
-    >
-      {{ errorMessage }}
-    </div>
+        <el-form
+            ref="formRef"
+            :model="form"
+            :rules="rules"
+            label-width="0"
+            class="login-form"
+            @submit.prevent="submitForm"
+        >
+          <el-form-item prop="name">
+            <el-input
+                v-model="form.name"
+                placeholder="Логин"
+                class="custom-input"
+            />
+          </el-form-item>
 
-    <div class="form-container">
-      <h1 class="title">
-        Добро пожаловать<br /><span>в баню</span>
-      </h1>
-      <form @submit.prevent="submitForm" class="login-form">
-        <input type="text" placeholder="Логин" v-model="name" />
-        <input type="password" placeholder="Пароль" v-model="password" />
-        <button type="submit">Войти</button>
-      </form>
-      <p class="register-text">
-        Нет аккаунта? <a href="/" @click.prevent="goToRegistration()">Зарегистрируйтесь</a>
-      </p>
+          <el-form-item prop="password">
+            <el-input
+                v-model="form.password"
+                type="password"
+                placeholder="Пароль"
+                class="custom-input"
+            />
+          </el-form-item>
+
+          <el-button
+              type="primary"
+              class="button-submit"
+              native-type="submit"
+          >
+            Войти
+          </el-button>
+        </el-form>
+
+        <p class="register-text">
+          Нет аккаунта?
+          <a href="/" @click.prevent="goToRegistration()">Зарегистрируйтесь</a>
+        </p>
+      </div>
+
+      <div class="image-container"></div>
     </div>
-    <div class="image-container"></div>
-  </div>
   </div>
 </template>
 
@@ -76,14 +104,8 @@ export default {
   box-sizing: border-box;
 }
 
-body, html, #app {
-  min-height: 100vh;
-  margin: 0;
-  font-family: 'Poppins', sans-serif;
-  background: #e8f0f2;
-  overflow-x: hidden;
-}
-
+body,
+html,
 
 .container {
   display: flex;
@@ -91,7 +113,7 @@ body, html, #app {
   max-width: 1400px;
   margin: 0 auto;
   background: #ffffff;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
   border-radius: 14px;
 }
 
@@ -110,14 +132,6 @@ body, html, #app {
   min-width: 320px;
   min-height: 105vh;
 }
-
-#app {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
-}
-
 
 .title {
   font-size: 1.9rem;
@@ -145,40 +159,43 @@ body, html, #app {
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 7px;
 }
 
-.login-form input {
+.custom-input ::v-deep(.el-input__inner) {
   padding: 14px 18px;
   font-size: 1.15rem;
-  border: 2.5px solid #bdc3c7;
-  border-radius: 8px;
+  height: 52px;
+  border-radius: 4px;
+  margin-left: -12px;
+  margin-right: -12px;
   transition: border-color 0.35s ease;
-  font-family: 'Poppins', sans-serif;
 }
 
-.login-form input:focus {
+.custom-input ::v-deep(.el-input__inner:focus) {
   border-color: #27ae60;
   outline: none;
+  box-shadow: 0 0 6px rgba(39, 174, 96, 0.4);
 }
 
-.login-form button {
+.button-submit {
   padding: 16px;
   font-size: 1.15rem;
-  background-color: #27ae60;
+  background-color: #29c66b;
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
   transition: background-color 0.35s ease;
   width: 400px;
+  height: 52px;
   align-self: flex-start;
   font-weight: 600;
   user-select: none;
 }
 
 .login-form button:hover {
-  background-color: #1e8449;
+  background-color: #17b359;
 }
 
 .register-text {
@@ -208,42 +225,5 @@ body, html, #app {
   border-bottom-right-radius: 14px;
   user-select: none;
 }
-
-.notification-wrong {
-  position: fixed;
-  top: 7%;
-  left: 91%;
-  transform: translate(-50%, -50%);
-  max-width: 305px;
-  width: 90vw;
-  padding: 15px;
-  background-color: #c50e0e;
-  color: white;
-  border-radius: 4px;
-  opacity: 0;
-  animation: fadeIn 0.3s ease-out forwards,
-  fadeOut 0.3s ease-in 2.7s forwards;
-  z-index: 1000;
-  display: none;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
 
 </style>

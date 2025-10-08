@@ -1,82 +1,118 @@
-<script>
-import {registration} from "../requestJS/Registration.js";
+<script setup>
+import { ref } from 'vue';
+import { useRouter } from 'vue-router';
+import { registration } from '../requestJS/Registration.js';
+import { ElNotification } from 'element-plus';
+import { reactive } from 'vue';
 
-export default {
-  data() {
-    return {
-      name: '',
-      email: '',
-      password: '',
-      showSuccess: false,
-      showNameTaken: false,
-      showError: false,
-      errorMessage: '',
-    }
-  },
-  methods: {
-    async submitForm() {
-      this.showSuccess = false;
-      this.showNameTaken = false;
-      this.showError = false;
+const form = reactive({
+  name: '',
+  email: '',
+  password: ''
+});
 
-      const response = await registration(this.name, this.password, this.email);
+const formRef = ref(null);
 
-      if (response.success) {
+const rules = {
+  name: [
+    { required: true, message: 'Пожалуйста, введите логин', trigger: 'change' }
+  ],
+  password: [
+    { required: true, message: 'Пожалуйста, введите пароль', trigger: 'change' }
+  ],
+  email: [
+    { required: true, message: 'Пожалуйста, введите email', trigger: 'change' },
+  ]
+};
 
-        this.showSuccess = true;
-        this.name = '';
-        this.password = '';
-        this.email = '';
+const router = useRouter();
 
-        this.$router.push('/main');
+function goToLogin() {
+  router.push('/login');
+}
 
-        setTimeout(() => (this.showSuccess = false), 3000);
-      } else if (response.errors) {
-        this.showError = true;
-        this.errorMessage = Object.values(response.errors)[0][0];
-        setTimeout(() => (this.showError = false), 3000);
-      } else {
-        this.showError = true;
-        setTimeout(() => (this.showError = false), 3000);
-      }
-    },
 
-    goToLogin() {
-      this.$router.push('/login');
-    }
+async function submitForm() {
+
+  const valid = await formRef.value.validate();
+  if (!valid) return;
+
+  const response = await registration(form.name, form.password, form.email);
+
+  if (response.success) {
+    await router.push('/main');
+  } else if (response.errors) {
+    const firstError = Object.values(response.errors)[0][0];
+
+    ElNotification({
+      title: 'Ошибка',
+      message: firstError,
+      type: 'error',
+      duration: 3000,
+    });
   }
 }
+
 </script>
 
 <template>
   <div class="body-wrapper">
-  <div class="container">
-    <div class="form-container">
+    <div class="container">
+      <div class="form-container">
+        <h1 class="title">Регистрация</h1>
 
-      <div
-          class="notification-wrong"
-          v-if="showError"
-      >
-        {{ errorMessage }}
+        <el-form
+            ref="formRef"
+            :model="form"
+            :rules="rules"
+            label-width="0"
+            class="login-form"
+            @submit.prevent="submitForm"
+        >
+          <el-form-item prop="name">
+            <el-input
+                v-model="form.name"
+                placeholder="Логин"
+                class="custom-input"
+            />
+          </el-form-item>
+
+          <el-form-item prop="password">
+            <el-input
+                v-model="form.password"
+                type="password"
+                placeholder="Пароль"
+                class="custom-input"
+            />
+          </el-form-item>
+            <el-form-item prop="email">
+              <el-input
+                  v-model="form.email"
+                  placeholder="Email"
+                  class="custom-input"
+              />
+            </el-form-item>
+
+            <el-button
+                type="primary"
+                class="button-submit"
+                @click="submitForm"
+            >
+              Регистрация
+            </el-button>
+        </el-form>
+
+        <p class="register-text">
+          Уже есть аккаунт?
+          <a href="/" @click.prevent="goToLogin">Войти</a>
+        </p>
       </div>
 
-      <h1 class="title">
-        Регистрация
-      </h1>
-      <form @submit.prevent="submitForm" class="login-form">
-        <input type="text" placeholder="Имя пользователя" v-model="name" />
-        <input type="email" placeholder="Email" v-model="email" />
-        <input type="password" placeholder="Пароль" v-model="password" />
-        <button type="submit">Зарегистрироваться</button>
-      </form>
-      <p class="register-text">
-        Уже есть аккаунт? <a href="/" @click.prevent="goToLogin()">Войти</a>
-      </p>
+      <div class="image-container"></div>
     </div>
-    <div class="image-container"></div>
-  </div>
   </div>
 </template>
+
 
 <style scoped>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
@@ -135,24 +171,26 @@ body, html, #app {
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 7px;
 }
 
-.login-form input {
+.custom-input ::v-deep(.el-input__inner) {
   padding: 14px 18px;
   font-size: 1.15rem;
-  border: 2.5px solid #bdc3c7;
-  border-radius: 8px;
+  height: 52px;
+  border-radius: 4px;
+  margin-left: -12px;
+  margin-right: -12px;
   transition: border-color 0.35s ease;
-  font-family: 'Poppins', sans-serif;
 }
 
-.login-form input:focus {
-  border-color: #d6a106;
+.custom-input ::v-deep(.el-input__inner:focus) {
+  border-color: #27ae60;
   outline: none;
+  box-shadow: 0 0 6px rgba(39, 174, 96, 0.4);
 }
 
-.login-form button {
+.button-submit {
   padding: 16px;
   font-size: 1.15rem;
   background-color: #e3a901;
@@ -162,6 +200,7 @@ body, html, #app {
   cursor: pointer;
   transition: background-color 0.35s ease;
   width: 400px;
+  height: 52px;
   align-self: flex-start;
   font-weight: 600;
   user-select: none;
@@ -197,57 +236,6 @@ body, html, #app {
   border-top-right-radius: 14px;
   border-bottom-right-radius: 14px;
   user-select: none;
-}
-
-.notification {
-  position: fixed;
-  top: 7%;
-  left: 89.7%;
-  transform: translate(-50%, -50%);
-  max-width: 350px;
-  width: 90vw;
-  padding: 15px;
-  background-color: #4CAF50;
-  color: white;
-  border-radius: 4px;
-  opacity: 0;
-  animation: fadeIn 0.3s ease-out forwards, fadeOut 0.3s ease-in 2.7s forwards;
-  z-index: 1000;
-}
-
-.notification-wrong {
-  position: fixed;
-  top: 7%;
-  left: 91%;
-  transform: translate(-50%, -50%);
-  max-width: 305px;
-  width: 90vw;
-  padding: 15px;
-  background-color: #c50e0e;
-  color: white;
-  border-radius: 4px;
-  opacity: 0;
-  animation: fadeIn 0.3s ease-out forwards,
-  fadeOut 0.3s ease-in 2.7s forwards;
-  z-index: 1000;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
 }
 
 </style>

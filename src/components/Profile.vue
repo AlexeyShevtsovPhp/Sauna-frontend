@@ -1,168 +1,163 @@
-<script>
-import {getUserProfileInfo} from '../requestJS/UserInfo.js';
-import {updateUser} from '../requestJS/UpdateUser.js';
-import {uploadAvatar} from "../requestJS/UploadAvatar.js";
-import {getProfileBooking} from "../requestJS/Booking.js";
-import {deleteBooking} from '../requestJS/Booking.js';
+<script setup>
+import { ref, reactive, computed, onMounted } from 'vue';
+import { getUserProfileInfo } from '../requestJS/UserInfo.js';
+import { updateUser } from '../requestJS/UpdateUser.js';
+import { uploadAvatar } from "../requestJS/UploadAvatar.js";
+import { getProfileBooking, deleteBooking } from "../requestJS/Booking.js";
+import { ElNotification } from 'element-plus';
 
-export default {
-  name: 'UserProfile',
-  data() {
-    return {
-      profile: {
-        name: '',
-        lastName: '',
-        middleName: '',
-        avatar: '',
-        email: '',
-        phone: '',
-        address: '',
-      },
-      bookings: [],
-      selectedBookingId: null,
-      notification: '',
-      notificationType: '',
-      initialProfileData: {},
-      loadingBookings: true,
-      errorMessage: '',
-    };
-  },
-  methods: {
-    showNotification(message, type = 'success') {
-      this.notification = message;
-      this.notificationType = type;
+const profile = reactive({
+  name: '',
+  lastName: '',
+  middleName: '',
+  avatar: '',
+  email: '',
+  phone: '',
+  address: '',
+});
 
-      this.$nextTick(() => {
-        const notificationElement = document.querySelector('.notification');
-        notificationElement.classList.add('show');
-        notificationElement.classList.remove('hide');
-      });
+const bookings = ref([]);
+const selectedBookingId = ref(null);
+const initialProfileData = ref({});
+const loadingBookings = ref(true);
+const tempAvatar = ref(null);
+const avatarInput = ref(null);
 
-      setTimeout(() => {
-        const notificationElement = document.querySelector('.notification');
-        notificationElement.classList.add('hide');
-        setTimeout(() => {
-          this.notification = '';
-        }, 200);
-      }, 3000);
-    },
+function showNotification(message, type = 'success') {
+  ElNotification({
+    message,
+    type,
+    offset: 50,
+    duration: 3000,
+  });
+}
 
-    selectBooking(id) {
-      this.selectedBookingId = this.selectedBookingId === id ? null : id;
-    },
+function selectBooking(id) {
+  selectedBookingId.value = selectedBookingId.value === id ? null : id;
+}
 
-    async removeBooking(id) {
-      await deleteBooking(id);
-      if (this.selectedBookingId === id) {
-        this.selectedBookingId = null;
-      }
-      await this.fetchBookings();
-    },
+async function saveProfile() {
+  if (profile.name.trim().length < 2) {
+    showNotification('Имя должно содержать минимум 2 символа', 'error');
+    return;
+  }
 
-    saveProfile() {
-      const userData = {
-        name: this.profile.name || '',
-        lastName: this.profile.lastName || '',
-        middleName: this.profile.middleName || '',
-        email: this.profile.email || '',
-        phone: this.profile.phone || '',
-        address: this.profile.address || '',
-      };
+  if (!profile.email.trim()) {
+    showNotification('Email обязателен', 'error');
+    return;
+  }
 
-      let avatarUpdated = false;
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(profile.email.trim())) {
+    showNotification('Введите корректный email', 'error');
+    return;
+  }
 
-      if (this.tempAvatar) {
-        avatarUpdated = true;
-        uploadAvatar(this.tempAvatar)
-            .then(() => updateUser(userData))
-            .then((response) => {
-              console.log(response);
-              window.location.reload();
-            });
-      } else {
-        updateUser(userData)
-            .then((response) => {
-              console.log(response);
-              this.showNotification('Изменения сохранены', 'success');
-              this.initialProfileData = {...this.profile};
-            })
-            .catch((error) => {
-              console.log(error);
-              this.showNotification('Ошибка при обновлении профиля', 'error');
-            });
-      }
-    },
+  const userData = {
+    name: profile.name || '',
+    lastName: profile.lastName || '',
+    middleName: profile.middleName || '',
+    email: profile.email || '',
+    phone: profile.phone || '',
+    address: profile.address || '',
+  };
 
-    formatDate(datetimeStr) {
-      const date = new Date(datetimeStr);
-      const day = date.getDate().toString().padStart(2, '0');
-      const month = (date.getMonth() + 1).toString().padStart(2, '0');
-      const year = date.getFullYear();
-      return `${day}.${month}.${year}`;
-    },
+  if (tempAvatar.value) {
+    await uploadAvatar(tempAvatar.value);
+    await updateUser(userData);
+    window.location.reload();
+  } else {
+    await updateUser(userData);
+    showNotification('Изменения сохранены', 'success');
+    initialProfileData.value = { ...profile };
+  }
+}
 
-    formatTime(datetimeStr) {
-      const date = new Date(datetimeStr);
-      const hours = date.getHours().toString().padStart(2, '0');
-      const minutes = date.getMinutes().toString().padStart(2, '0');
-      return `${hours}:${minutes}`;
-    },
+async function removeBooking(id) {
+  await deleteBooking(id);
+  if (selectedBookingId.value === id) {
+    selectedBookingId.value = null;
+  }
+  await fetchBookings();
+  showNotification('Бронирование удалено', 'success');
+}
 
+function formatDate(datetimeStr) {
+  const date = new Date(datetimeStr);
+  const day = date.getDate().toString().padStart(2, '0');
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}.${month}.${year}`;
+}
 
-    triggerFileInput() {
-      this.$refs.avatarInput.click();
-    },
+function formatTime(datetimeStr) {
+  const date = new Date(datetimeStr);
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
 
-    handleAvatarUpload(event) {
-      const file = event.target.files[0];
-      if (file) {
-        this.tempAvatar = file;
-        this.profile.avatar = URL.createObjectURL(file);
-      }
-    },
+function triggerFileInput() {
+  avatarInput.value.click();
+}
 
-    fetchBookings() {
-      this.loadingBookings = true;
+function handleAvatarUpload(event) {
+  const file = event.target.files[0];
+  if (file) {
+    tempAvatar.value = file;
+    profile.avatar = URL.createObjectURL(file);
+  }
+}
 
-      getProfileBooking()
-          .then((response) => {
-            this.bookings = response || [];
-            this.loadingBookings = false;
-          })
-          .catch((error) => {
-            this.loadingBookings = false;
-            this.errorMessage = 'Ошибка при загрузке бронирований';
-            console.error(error);
-          });
-    },
-  },
+async function fetchBookings() {
+  loadingBookings.value = true;
+  try {
+    const response = await getProfileBooking();
+    bookings.value = response || [];
+  } catch (error) {
+    console.error('Ошибка при загрузке бронирований:', error);
+  } finally {
+    loadingBookings.value = false;
+  }
+}
 
-  mounted() {
-    getUserProfileInfo().then((response) => {
-      if (response.success) {
-        this.initialProfileData = {...response.user};
-        this.profile = {...this.initialProfileData};
-      }
-    });
+const sortedBookings = computed(() => {
+  return [...bookings.value].sort((a, b) => {
+    const nameA = a.sauna?.name?.toLowerCase() || '';
+    const nameB = b.sauna?.name?.toLowerCase() || '';
 
-    this.fetchBookings();
-  },
+    if (nameA < nameB) return -1;
+    if (nameA > nameB) return 1;
 
-  computed: {
-    isProfileChanged() {
-      return JSON.stringify(this.profile) !== JSON.stringify(this.initialProfileData);
-    },
-  },
-};
+    const timeA = a.time?.start_time ? new Date(a.time.start_time).getTime() : 0;
+    const timeB = b.time?.start_time ? new Date(b.time.start_time).getTime() : 0;
+
+    return timeA - timeB;
+  });
+});
+
+const isProfileChanged = computed(() => {
+  if (tempAvatar.value) return true;
+
+  const keys = ['name', 'lastName', 'middleName', 'email', 'phone', 'address'];
+  return keys.some(key => profile[key] !== initialProfileData.value[key]);
+});
+
+onMounted(async () => {
+  try {
+    const response = await getUserProfileInfo();
+    if (response.success) {
+      initialProfileData.value = { ...response.user };
+      Object.assign(profile, initialProfileData.value);
+    }
+    await fetchBookings();
+  } catch (error) {
+    console.error('Ошибка при загрузке профиля:', error);
+  }
+});
 </script>
 
 <template>
-  <transition>
-    <div v-if="notification" class="notification" :class="notificationType">
-      {{ notification }}
-    </div>
-  </transition>
-
   <div class="user-profile-page">
     <div class="user-profile-card">
       <div
@@ -173,7 +168,7 @@ export default {
           role="button"
           aria-label="Загрузить аватар"
       >
-        <img :src="profile.avatar" alt="Аватар пользователя" class="avatar"/>
+        <img :src="profile.avatar" alt="Аватар пользователя" class="avatar" />
         <div class="avatar-overlay">
           <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -205,15 +200,15 @@ export default {
       <div class="user-form">
         <div class="form-group">
           <label for="firstName">Имя</label>
-          <input v-model="profile.name" id="firstName" type="text" placeholder="Введите имя"/>
+          <input v-model="profile.name" id="firstName" type="text" placeholder="Введите имя" />
         </div>
         <div class="form-group">
           <label for="lastName">Фамилия</label>
-          <input v-model="profile.lastName" id="lastName" type="text" placeholder="Введите фамилию"/>
+          <input v-model="profile.lastName" id="lastName" type="text" placeholder="Введите фамилию" />
         </div>
         <div class="form-group">
           <label for="middleName">Отчество</label>
-          <input v-model="profile.middleName" id="middleName" type="text" placeholder="Введите отчество"/>
+          <input v-model="profile.middleName" id="middleName" type="text" placeholder="Введите отчество" />
         </div>
       </div>
     </div>
@@ -221,15 +216,15 @@ export default {
     <div class="user-contact-section">
       <div class="form-group">
         <label for="email">Email</label>
-        <input v-model="profile.email" id="email" type="email" placeholder="example@mail.com"/>
+        <input v-model="profile.email" id="email" type="email" placeholder="example@mail.com" />
       </div>
       <div class="form-group">
         <label for="phone">Телефон</label>
-        <input v-model="profile.phone" id="phone" type="tel" placeholder="+7 (999) 123-45-67"/>
+        <input v-model="profile.phone" id="phone" type="tel" placeholder="+7 (999) 123-45-67" />
       </div>
       <div class="form-group">
         <label for="address">Адрес</label>
-        <input v-model="profile.address" id="address" type="text" placeholder="Город, улица, дом"/>
+        <input v-model="profile.address" id="address" type="text" placeholder="Город, улица, дом" />
       </div>
     </div>
 
@@ -249,7 +244,7 @@ export default {
       <div class="bookings-list">
         <template v-if="bookings.length > 0">
           <div
-              v-for="(booking, index) in bookings"
+              v-for="(booking, index) in sortedBookings"
               :key="booking.sauna?.id || index"
               class="booking-card"
               :class="{ selected: booking.sauna?.id === selectedBookingId }"
@@ -281,57 +276,6 @@ export default {
 </template>
 
 <style scoped>
-.notification {
-  position: fixed;
-  top: 136px;
-  right: 10px;
-  padding: 10px 20px;
-  border-radius: 5px;
-  color: white;
-  background-color: #4caf50;
-  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
-  opacity: 0;
-  visibility: hidden;
-  animation: none;
-  transition: opacity 0.3s ease, visibility 0s 0.3s;
-}
-
-.notification.error {
-  background-color: #f44336;
-}
-
-.notification.success {
-  background-color: #4caf50;
-}
-
-.notification.show {
-  opacity: 1;
-  visibility: visible;
-  animation: fadeIn 0.2s forwards;
-}
-
-.notification.hide {
-  animation: fadeOut 0.2s forwards;
-}
-
-@keyframes fadeIn {
-  0% {
-    opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes fadeOut {
-  0% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
 .no-bookings {
   padding: 1rem;
   color: #777;

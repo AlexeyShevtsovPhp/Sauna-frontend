@@ -1,7 +1,6 @@
 export async function login(name, password) {
     const data = { name, password };
 
-    try {
         const response = await fetch('http://tytsauna.loc:8080/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -9,7 +8,6 @@ export async function login(name, password) {
         });
 
         const result = await response.json();
-        console.log('API response:', result);
 
         if (response.ok) {
             localStorage.setItem('token', result.token);
@@ -20,18 +18,7 @@ export async function login(name, password) {
 
             return { success: true };
         } else {
-            return {
-                success: false,
-                message: result.message || 'Неизвестная ошибка',
-                errors: result.errors || null,
-            };
+            return { success: false };
         }
-    } catch (error) {
-        console.error('Fetch error:', error);
-        return {
-            success: false,
-            message: 'Ошибка сети или сервера',
-            errors: null,
-        };
-    }
+
 }

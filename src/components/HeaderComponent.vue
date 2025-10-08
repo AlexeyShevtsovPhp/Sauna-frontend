@@ -37,6 +37,9 @@ export default {
   methods: {
     goToProfile() {
       this.$router.push('/profile');
+    },
+    goToAbout() {
+      this.$router.push('/about');
     }
   },
   mounted() {

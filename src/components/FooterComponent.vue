@@ -328,6 +328,8 @@ h1:hover {
 
   padding: 3rem 2rem 2rem;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  position: relative;
+  z-index: 100;
 
 }
 

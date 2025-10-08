@@ -1,110 +1,125 @@
-<script>
-import {SaunaInfo} from '../requestJS/SaunaInfo.js';
-import {fetchBookingsByDate, sendBookings} from "../requestJS/Booking.js";
+<script setup>
+import { ref, computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
+import { SaunaInfo } from '../requestJS/SaunaInfo.js';
+import { fetchBookingsByDate, sendBookings } from "../requestJS/Booking.js";
+import { ElNotification } from 'element-plus';
 
-export default {
-  data() {
-    return {
-      photos: [],
-      sauna: null,
-      currentIndex: 0,
-      timeSlots: [],
-      selectedDate: new Date().toISOString().split('T')[0],
-    };
-  },
-  methods: {
+const photos = ref([]);
+const sauna = ref(null);
+const currentIndex = ref(0);
+const timeSlots = ref([]);
+const selectedDate = ref(new Date().toISOString().split('T')[0]);
 
-    prevPhoto() {
-      this.currentIndex = (this.currentIndex - 1 + this.photos.length) % this.photos.length;
-    },
-    nextPhoto() {
-      this.currentIndex = (this.currentIndex + 1) % this.photos.length;
-    },
+const route = useRoute();
 
-    formatLocalDateTime(date) {
-      const pad = (num) => num.toString().padStart(2, '0');
+function prevPhoto() {
+  currentIndex.value = (currentIndex.value - 1 + photos.value.length) % photos.value.length;
+}
 
-      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
-          `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;},
+function nextPhoto() {
+  currentIndex.value = (currentIndex.value + 1) % photos.value.length;
+}
 
-    bookSauna() {
-      const selectedSlots = this.timeSlots.filter(slot => slot.selected);
-      if (selectedSlots.length === 0) {
-        alert('Пожалуйста, выберите хотя бы один временной слот.');
-        return;
-      }
+function formatLocalDateTime(date) {
+  const pad = (num) => num.toString().padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ` +
+      `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
 
-      const bookings = selectedSlots.map(slot => {
-        const [startHour] = slot.time.split(':');
-        const start = new Date(`${this.selectedDate}T${startHour.padStart(2, '0')}:00:00`);
-        const end = new Date(start.getTime() + 60 * 60 * 1000);
+async function updateSlots() {
+  if (!sauna.value) return;
 
-        return {
-          sauna_id: this.sauna.id,
-          start_time: this.formatLocalDateTime(start),
-          end_time: this.formatLocalDateTime(end),
-        };
-      });
-
-      sendBookings(bookings)
-          .then(() => {
-            alert('Бронирование успешно!');
-            this.updateSlots();
-          })
-          .catch(() => {
-            alert('Ошибка при бронировании');
-          });
-    },
-
-    async updateSlots() {
-      const slots = [];
-      for (let hour = 9; hour < 20; hour++) {
-        slots.push({
-          id: `${this.selectedDate}-${hour}`,
-          time: `${hour}:00 - ${hour + 1}:00`,
-          available: true,
-          selected: false,
-        });
-      }
-
-      const bookings = await fetchBookingsByDate(this.selectedDate, this.sauna.id);
-
-      bookings.forEach(booking => {
-        const startHour = new Date(booking.start_time).getHours();
-        const endHour = new Date(booking.end_time).getHours();
-
-        for (let h = startHour; h < endHour; h++) {
-          const slot = slots.find(s => s.id === `${this.selectedDate}-${h}`);
-          if (slot) {
-            slot.available = false;
-            slot.selected = false;
-          }
-        }
-      });
-      this.timeSlots = slots;
-    }
-  },
-
-  mounted() {
-    const saunaId = this.$route.params.id;
-
-    SaunaInfo(saunaId).then(response => {
-      if (response.status === 200) {
-        this.sauna = response.data.data;
-
-        this.photos = Array.isArray(this.sauna.pictures) ? this.sauna.pictures : [];
-
-        this.updateSlots();
-      }
+  const slots = [];
+  for (let hour = 9; hour < 20; hour++) {
+    slots.push({
+      id: `${selectedDate.value}-${hour}`,
+      time: `${hour}:00 - ${hour + 1}:00`,
+      available: true,
+      selected: false,
     });
-  },
+  }
 
-  computed: {
-    currentPhoto() {
-      return this.photos[this.currentIndex] || '';
-    },
-  },
-};
+  const bookings = await fetchBookingsByDate(selectedDate.value, sauna.value.id);
+
+  bookings.forEach(booking => {
+    const startHour = new Date(booking.start_time).getHours();
+    const endHour = new Date(booking.end_time).getHours();
+
+    for (let h = startHour; h < endHour; h++) {
+      const slot = slots.find(s => s.id === `${selectedDate.value}-${h}`);
+      if (slot) {
+        slot.available = false;
+        slot.selected = false;
+      }
+    }
+  });
+
+  timeSlots.value = slots;
+}
+
+function disabledDate(time) {
+  return time.getTime() < Date.now() - 86400000; // Запрет на даты раньше вчерашнего дня
+}
+
+function bookSauna() {
+  const selectedSlots = timeSlots.value.filter(slot => slot.selected);
+
+  if (selectedSlots.length === 0) {
+    ElNotification({
+      title: 'Ошибка',
+      message: 'Пожалуйста, выберите хотя бы один временной слот.',
+      type: 'warning',
+      offset: 50,
+    });
+    return;
+  }
+
+  const bookings = selectedSlots.map(slot => {
+    const [startHour] = slot.time.split(':');
+    const start = new Date(`${selectedDate.value}T${startHour.padStart(2, '0')}:00:00`);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+
+    return {
+      sauna_id: sauna.value.id,
+      start_time: formatLocalDateTime(start),
+      end_time: formatLocalDateTime(end),
+    };
+  });
+
+  sendBookings(bookings)
+      .then(() => {
+        ElNotification({
+          title: 'Успех',
+          message: 'Бронирование успешно!',
+          type: 'success',
+          offset: 50,
+        });
+        updateSlots();
+      })
+      .catch(() => {
+        ElNotification({
+          title: 'Ошибка',
+          message: 'Ошибка при бронировании',
+          type: 'error',
+          offset: 50,
+        });
+      });
+}
+
+onMounted(() => {
+  const saunaId = route.params.id;
+  SaunaInfo(saunaId).then(response => {
+    if (response.status === 200) {
+      sauna.value = response.data.data;
+      photos.value = Array.isArray(sauna.value.pictures) ? sauna.value.pictures : [];
+      updateSlots();
+    }
+  });
+});
+
+const currentPhoto = computed(() => photos.value[currentIndex.value] || '');
+
 </script>
 
 <template>
@@ -112,13 +127,13 @@ export default {
 
     <div class="photo-gallery">
       <button @click="prevPhoto" class="nav-button left" aria-label="Назад">
-        <img src="/images/back.png" alt="назад" class="arrow-icon"/>
+        <img src="/images/back.png" alt="назад" class="arrow-icon" />
       </button>
 
-      <img :src="currentPhoto" alt="Сауна" class="main-photo"/>
+      <img :src="currentPhoto" alt="Сауна" class="main-photo" />
 
       <button @click="nextPhoto" class="nav-button right" aria-label="Вперёд">
-        <img src="/images/back.png" alt="вперёд" class="arrow-icon"/>
+        <img src="/images/back.png" alt="вперёд" class="arrow-icon" />
       </button>
     </div>
 
@@ -131,46 +146,48 @@ export default {
       <p class="sauna-description">{{ sauna.description }}</p>
 
       <h3>Выберите дату и время бронирования:</h3>
-      <div class="date-picker">
-        <label for="date">Дата:</label>
-        <input
-            type="date"
-            id="date"
-            v-model="selectedDate"
-            @change="updateSlots"
-        />
-      </div>
-      <div class="slots-wrapper">
-        <div
-            v-for="slot in timeSlots"
-            :key="slot.id"
-            class="slot-item"
-        >
-          <span class="slot-time">{{ slot.time }}</span>
-          <label class="switch">
-            <input
-                type="checkbox"
-                v-model="slot.selected"
-                :disabled="!slot.available"
-                :checked="!slot.available"
-            />
-            <span class="slider" :class="{ 'disabled': !slot.available }"></span>
-          </label>
-        </div>
-      </div>
 
-      <div class="book-button-container">
-        <button class="book-button" @click="bookSauna">
-          Забронировать
-        </button>
-      </div>
+      <form @submit.prevent="bookSauna" class="booking-form">
+        <div class="date-picker">
+          <label for="date">Дата:</label>
+          <el-date-picker
+              v-model="selectedDate"
+              type="date"
+              placeholder="Выберите дату"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              :disabled-date="disabledDate"
+              @change="updateSlots"
+          />
+        </div>
+
+        <div class="slots-wrapper">
+          <div v-for="slot in timeSlots" :key="slot.id" class="slot-item">
+            <span class="slot-time">{{ slot.time }}</span>
+            <label class="switch">
+              <input
+                  type="checkbox"
+                  v-model="slot.selected"
+                  :disabled="!slot.available"
+                  :checked="!slot.available"
+              />
+              <span class="slider" :class="{ disabled: !slot.available }"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="book-button-container">
+          <button class="book-button" type="submit">
+            Забронировать
+          </button>
+        </div>
+      </form>
     </div>
 
   </div>
 </template>
 
 <style scoped>
-
 body {
   background: linear-gradient(to bottom, #f5f3ef 0%, #f5f3ef 100%);
   margin: 0;
@@ -192,19 +209,13 @@ body {
   align-items: center;
   gap: 1rem;
   margin-top: 0.5rem;
+  margin-bottom: 2rem;
 }
 
 .date-picker label {
   font-weight: 500;
   font-size: 1rem;
   color: #333;
-}
-
-.date-picker input[type="date"] {
-  padding: 6px 12px;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  font-size: 1rem;
 }
 
 input:disabled + .slider {
@@ -252,7 +263,6 @@ input:disabled + .slider:before {
   box-shadow: 0 0 0 3px rgba(86, 171, 47, 0.6);
 }
 
-
 .nav-button.right .arrow-icon {
   transform: scaleX(-1);
 }
@@ -278,7 +288,6 @@ input:disabled + .slider:before {
   align-items: center;
   justify-content: center;
 }
-
 
 .main-photo {
   width: 100%;
@@ -424,6 +433,16 @@ input:checked + .slider {
 }
 
 input:checked + .slider:before {
+  transform: translateX(22px);
+}
+
+.slider.disabled {
+  background-color: #817d7d !important;
+  cursor: not-allowed;
+}
+
+.slider.disabled:before {
+  background: #eee;
   transform: translateX(22px);
 }
 </style>
