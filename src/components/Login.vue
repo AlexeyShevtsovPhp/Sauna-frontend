@@ -34,13 +34,22 @@ async function submitForm() {
   if (response.success) {
     window.location.href = '/main';
   } else {
-    ElNotification({
-      title: 'Ошибка',
-      message: 'Неверный логин или пароль',
-      type: 'error',
-    });
+    if (response.status === 403) {
+      ElNotification({
+        title: 'Доступ запрещён',
+        message: 'Ваш аккаунт был заблокирован администрацией сайта',
+        type: 'error',
+      });
+    } else {
+      ElNotification({
+        title: 'Ошибка',
+        message: 'Неверный логин или пароль',
+        type: 'error',
+      });
+    }
   }
 }
+
 </script>
 
 <template>

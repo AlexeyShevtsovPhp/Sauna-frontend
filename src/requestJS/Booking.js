@@ -43,3 +43,11 @@ export async function deleteBooking(bookingId) {
 
     return true;
 }
+
+export async function getProfileBooking4Admin(userId) {
+    const response = await fetch(`http://tytsauna.loc:8080/api/profile/saunas/${userId}`, {
+        headers: getAuthHeaders(),
+    });
+    return await response.json();
+}
+

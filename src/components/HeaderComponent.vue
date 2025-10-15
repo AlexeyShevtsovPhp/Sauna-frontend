@@ -1,20 +1,80 @@
-<!-- src/components/HeaderComponent.vue -->
+<script>
+import {getNameAndAvatar} from '../requestJS/UserInfo.js';
+
+export default {
+  data() {
+    return {
+      avatar: '',
+      role: ''
+    }
+  },
+  methods: {
+    goToProfile() {
+      this.$router.push('/profile');
+    },
+
+    goToAdmin() {
+      this.$router.push('/adminTools');
+    },
+
+    logout() {
+      localStorage.removeItem('token');
+      this.$router.push('/login');
+    },
+  },
+  mounted() {
+    getNameAndAvatar().then(response => {
+      if (response.success) {
+        this.avatar = response.user.avatar;
+        this.role = response.user.role;
+        localStorage.setItem('role', response.user.role);
+      }
+    });
+  }
+}
+</script>
+
 <template>
   <header class="header">
     <div class="header-content">
       <h1>🔥 Найди свою идеальную баню — отдыхай по кайфу! 🧖‍♂️</h1>
       <nav class="header-nav">
         <ul>
-          <li><router-link to="/main">Главная</router-link></li>
-          <li><router-link to="/about">О нас</router-link></li>
+          <li>
+            <router-link to="/main">Главная</router-link>
+          </li>
+          <li>
+            <router-link to="/about">О нас</router-link>
+          </li>
+          <li>
+            <router-link to="/contacts">Контакты</router-link>
+          </li>
           <li class="contacts-with-avatar">
-            <a href="#contact">Контакты</a>
             <img
                 :src="avatar || '/default-avatar.png'"
                 alt="Личный кабинет"
                 class="user-avatar"
                 @click="goToProfile"
                 title="Личный кабинет"
+                role="button"
+                tabindex="0"
+            />
+            <img
+                src="/images/logout.png"
+                alt="Выход"
+                class="logout-icon"
+                @click="logout"
+                title="Выйти"
+                role="button"
+                tabindex="0"
+            />
+            <img
+                v-if="role === 'admin'"
+                src="/images/adminTool.png"
+                alt="Панель разработчика"
+                class="developer-icon"
+                @click="goToAdmin"
+                title="Панель разработчика"
                 role="button"
                 tabindex="0"
             />
@@ -25,34 +85,23 @@
   </header>
 </template>
 
-<script>
-import { getNameAndAvatar } from '../requestJS/UserInfo.js';
-
-export default {
-  data() {
-    return {
-      avatar: ''
-    }
-  },
-  methods: {
-    goToProfile() {
-      this.$router.push('/profile');
-    },
-    goToAbout() {
-      this.$router.push('/about');
-    }
-  },
-  mounted() {
-    getNameAndAvatar().then(response => {
-      if (response.success) {
-        this.avatar = response.user.avatar;
-      }
-    });
-  }
-}
-</script>
-
 <style scoped>
+
+.developer-icon {
+  width: 43px;
+  height: 43px;
+  margin-left: -227px;
+  margin-top: -3px;
+  cursor: pointer;
+  border-radius: 6px;
+  position: absolute;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.developer-icon:hover {
+  transform: scale(1.1);
+}
+
 .header {
   background-color: #ffffff;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -62,7 +111,7 @@ export default {
   z-index: 1000;
 }
 
-.header-nav{
+.header-nav {
   margin-left: 1400px;
   position: absolute;
 }
@@ -71,6 +120,7 @@ export default {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  margin-left: -105px;
 }
 
 .user-avatar {
@@ -110,13 +160,6 @@ export default {
   filter: drop-shadow(0 2px 4px rgba(107, 167, 232, 0.6));
 }
 
-.main-content {
-  padding-top: 3rem;
-  padding-bottom: 85px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
 .header-content {
   max-width: 12000px;
   margin: 0 auto;
@@ -124,6 +167,19 @@ export default {
   justify-content: space-between;
   align-items: center;
 
+}
+
+.logout-icon {
+  position: absolute;
+  width: 57px;
+  height: 57px;
+  margin-left: 172px;
+  cursor: pointer;
+  transition: transform 0.3s ease;
+}
+
+.logout-icon:hover {
+  transform: scale(1.1);
 }
 
 h1 {
@@ -165,8 +221,7 @@ h1:hover {
 }
 
 @media (max-width: 768px) {
-  .header-content,
-  .footer-top {
+  .header-content {
     flex-direction: column;
     gap: 1rem;
   }
@@ -175,19 +230,6 @@ h1:hover {
     flex-direction: column;
     gap: 1rem;
   }
-}
-
-.copyright {
-  color: #bfb9b9;
-  margin: 0;
-}
-
-.social-links {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  gap: 1.5rem;
 }
 
 .social-links a {
@@ -212,36 +254,6 @@ h1:hover {
 
 .footer-section a:hover {
   color: #007bff;
-}
-
-.footer-bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 1.5rem;
-}
-
-.footer {
-  background-color: #f8f9fa;
-  padding: 2rem;
-  margin-top: 2rem;
-}
-
-.footer-content {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.footer-top {
-  display: flex;
-  gap: 3rem;
-  margin-bottom: 2rem;
-  border-bottom: 1px solid #dee2e6;
-  padding-bottom: 1.5rem;
-}
-
-.footer-section {
-  flex: 1;
 }
 
 .footer-section h3 {
@@ -269,99 +281,11 @@ h1:hover {
   color: #007bff;
 }
 
-.sauna-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 1rem;
-  padding: 1rem 0;
-}
-
-.sauna-card {
-  background-color: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  cursor: pointer;
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.sauna-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-}
-
-.sauna-image-placeholder {
-  width: 100%;
-  height: 120px;
-  background-color: #eee;
-  border-bottom: 1px solid #ddd;
-}
-
-.sauna-name {
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  color: #333;
-  text-align: center;
-  font-weight: 600;
-}
-
-@media (max-width: 1200px) {
-  .sauna-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .sauna-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .sauna-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 .sauna-image-placeholder img {
   width: 100%;
   height: 120px;
   object-fit: cover;
   display: block;
-}
-
-.footer {
-  background: linear-gradient(135deg, #36454f, #596f7f);
-  color: #dbe7f1;
-  border-radius: 20px 20px 0 0;
-  box-shadow: 0 -4px 12px rgba(54,69,79,0.5);
-
-  padding: 3rem 2rem 2rem;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-
-}
-
-.footer-content {
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
-.footer-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 3rem;
-  flex-wrap: nowrap;
-  padding-bottom: 1.5rem;
-  margin-bottom: 1.5rem;
-  border-bottom: 1px solid rgba(255,255,255,0.3);
-}
-
-.footer-section {
-  flex: 1;
 }
 
 .footer-section h3 {
@@ -398,24 +322,6 @@ h1:hover {
   text-decoration: underline;
 }
 
-.footer-bottom {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  font-size: 0.9rem;
-  color: #cce9e9;
-  gap: 1rem;
-}
-
-.social-links {
-  list-style: none;
-  display: flex;
-  gap: 1.5rem;
-  padding: 0;
-  margin: 0;
-}
-
 .social-links a {
   font-size: 1.5rem;
   color: #d0f0f0;
@@ -436,17 +342,5 @@ h1:hover {
   transform: scale(1.2);
   box-shadow: 0 0 8px #ffdd57;
 }
-
-@media (max-width: 768px) {
-  .footer-top {
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-  .footer-bottom {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-}
-
 
 </style>

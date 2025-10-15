@@ -1,6 +1,6 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import {useRoute, useRouter} from 'vue-router';
 import { SaunaInfo } from '../requestJS/SaunaInfo.js';
 import { fetchBookingsByDate, sendBookings } from "../requestJS/Booking.js";
 import { ElNotification } from 'element-plus';
@@ -10,7 +10,7 @@ const sauna = ref(null);
 const currentIndex = ref(0);
 const timeSlots = ref([]);
 const selectedDate = ref(new Date().toISOString().split('T')[0]);
-
+const router = useRouter();
 const route = useRoute();
 
 function prevPhoto() {
@@ -19,6 +19,10 @@ function prevPhoto() {
 
 function nextPhoto() {
   currentIndex.value = (currentIndex.value + 1) % photos.value.length;
+}
+
+function goToMap() {
+  router.push({ name: 'saunaOnMap', params: { id: sauna.value.id } });
 }
 
 function formatLocalDateTime(date) {
@@ -59,7 +63,7 @@ async function updateSlots() {
 }
 
 function disabledDate(time) {
-  return time.getTime() < Date.now() - 86400000; // Запрет на даты раньше вчерашнего дня
+  return time.getTime() < Date.now() - 86400000;
 }
 
 function bookSauna() {
@@ -142,7 +146,12 @@ const currentPhoto = computed(() => photos.value[currentIndex.value] || '');
     </div>
 
     <div class="info-panel" v-if="sauna">
-      <h2 class="sauna-title">{{ sauna.name }}</h2>
+
+      <div class="sauna-header">
+        <h2 class="sauna-title">{{ sauna.name }}</h2>
+        <a href="#" @click.prevent="goToMap" class="map-link">На карте</a>
+      </div>
+
       <p class="sauna-description">{{ sauna.description }}</p>
 
       <h3>Выберите дату и время бронирования:</h3>
@@ -202,6 +211,28 @@ body {
   margin: auto;
   user-select: none;
   pointer-events: none;
+}
+
+.sauna-header {
+  display: flex;
+  justify-content: center;
+  margin-left: 72px;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.map-link {
+  font-size: 0.9rem;
+  text-decoration: underline;
+  color: #007bff;
+  cursor: pointer;
+  white-space: nowrap;
+  margin-left: -10px;
+}
+
+.map-link:hover {
+  text-decoration: none;
 }
 
 .date-picker {

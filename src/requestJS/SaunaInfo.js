@@ -10,3 +10,9 @@ export function SaunaInfo(id) {
         headers: getAuthHeaders(),
     });
 }
+
+export function SaunaCoordinates(id) {
+    return axios.get(`http://tytsauna.loc:8080/api/coordinates/${id}`, {
+        headers: getAuthHeaders(),
+    });
+}

@@ -14,8 +14,8 @@
         <div class="footer-section">
           <h3>Контакты</h3>
           <ul>
-            <li>📞 +7 (999) 123-45-67</li>
-            <li>✉️ info@example.com</li>
+            <li>📞 +375 (29) 846-89-06</li>
+            <li>✉️ tyt.Homelsauna@mail.com</li>
             <li>📍 Москва, ул. Примерная, 123</li>
           </ul>
         </div>
@@ -39,42 +39,6 @@ export default {
 </script>
 
 <style scoped>
-.header {
-  background-color: #ffffff;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  padding: 1rem 2rem;
-  position: sticky;
-  top: 0;
-  z-index: 1000;
-}
-
-.header-nav{
-  margin-left: 1400px;
-  position: absolute;
-}
-
-.contacts-with-avatar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.user-avatar {
-  width: 40px;
-  height: 40px;
-  margin-left: 100px;
-  margin-top: -3px;
-
-  position: absolute;
-  border-radius: 50%;
-  padding: 3px;
-  background: #fff;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  cursor: pointer;
-  transition: box-shadow 0.3s ease, transform 0.3s ease, border-color 0.3s ease;
-  border: 2px solid transparent;
-}
-
 .user-avatar img {
   width: 100%;
   height: 100%;
@@ -85,33 +49,6 @@ export default {
   filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
   transition: filter 0.3s ease;
 }
-
-.user-avatar:hover {
-  box-shadow: 0 8px 20px rgba(107, 167, 232, 0.5);
-  border-color: #6ba7e8;
-  transform: scale(1.07);
-}
-
-.user-avatar:hover img {
-  filter: drop-shadow(0 2px 4px rgba(107, 167, 232, 0.6));
-}
-
-.main-content {
-  padding-top: 3rem;
-  padding-bottom: 85px;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.header-content {
-  max-width: 12000px;
-  margin: 0 auto;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-
-}
-
 h1 {
   font-size: 1.5rem;
   color: #222;
@@ -151,7 +88,6 @@ h1:hover {
 }
 
 @media (max-width: 768px) {
-  .header-content,
   .footer-top {
     flex-direction: column;
     gap: 1rem;
@@ -253,64 +189,6 @@ h1:hover {
 
 .footer-section a:hover {
   color: #007bff;
-}
-
-.sauna-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 1rem;
-  padding: 1rem 0;
-}
-
-.sauna-card {
-  background-color: #fff;
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  cursor: pointer;
-  overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.sauna-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-}
-
-.sauna-image-placeholder {
-  width: 100%;
-  height: 120px;
-  background-color: #eee;
-  border-bottom: 1px solid #ddd;
-}
-
-.sauna-name {
-  padding: 0.75rem 1rem;
-  font-size: 1rem;
-  color: #333;
-  text-align: center;
-  font-weight: 600;
-}
-
-@media (max-width: 1200px) {
-  .sauna-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .sauna-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .sauna-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 .sauna-image-placeholder img {
@@ -435,6 +313,5 @@ h1:hover {
     align-items: flex-start;
   }
 }
-
 
 </style>
