@@ -20,8 +20,7 @@ export async function fetchBookingsByDate(date, saunaId) {
     const response = await fetch(`http://tytsauna.loc:8080/api/bookDateInfo?date=${date}&sauna_id=${saunaId}`, {
         headers: getAuthHeaders(),
     });
-    const data = await response.json();
-    return data.bookings;
+    return await response.json();
 }
 
 export async function getProfileBooking() {

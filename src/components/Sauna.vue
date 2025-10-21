@@ -1,7 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import {useRoute, useRouter} from 'vue-router';
-import { SaunaInfo } from '../requestJS/SaunaInfo.js';
+import { saunaInfo } from '../requestJS/SaunaInfo.js';
 import { fetchBookingsByDate, sendBookings } from "../requestJS/Booking.js";
 import { ElNotification } from 'element-plus';
 
@@ -113,9 +113,9 @@ function bookSauna() {
 
 onMounted(() => {
   const saunaId = route.params.id;
-  SaunaInfo(saunaId).then(response => {
+  saunaInfo(saunaId).then(response => {
     if (response.status === 200) {
-      sauna.value = response.data.data;
+      sauna.value = response.data[0];
       photos.value = Array.isArray(sauna.value.pictures) ? sauna.value.pictures : [];
       updateSlots();
     }

@@ -6,11 +6,6 @@
 export function refreshHeader(file) {
     const token = localStorage.getItem('token');
 
-    if (!token) {
-        console.error('Ошибка: Не найден токен для авторизации');
-        return Promise.reject(new Error('Не найден токен для авторизации'));
-    }
-
     const formData = new FormData();
     formData.append('avatar', file);
 
@@ -24,14 +19,12 @@ export function refreshHeader(file) {
         .then(response => {
             if (!response.ok) {
                 return response.json().then(err => {
-                    // Пытаемся распарсить ответ сервера и передаем его в ошибку
                     throw new Error(err.message || 'Ошибка при загрузке аватара');
                 });
             }
             return response.json();
         })
         .then(data => {
-            // Убедимся, что данные содержат поле avatar
             if (data && data.avatar) {
                 return data.avatar;
             } else {

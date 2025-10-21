@@ -1,40 +1,98 @@
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { computed, nextTick, onMounted, reactive, ref } from 'vue';
 import { getSaunas } from '../requestJS/SaunaListFetch.js';
-import { SaunaInfo } from '../requestJS/SaunaInfo.js';
-import { useRoute } from 'vue-router';
+import { saunaInfo } from '../requestJS/SaunaInfo.js';
+import { saunaUpdate, uploadPhoto, deletePhotoFromServer } from '../requestJS/UpdateSaunaData.js';
+import { ElNotification } from 'element-plus';
 
 const saunaList = ref([]);
 const selectedSaunaId = ref(null);
 const selectedPhotoIndex = ref(0);
 const sauna = ref(null);
-const photos = ref([]);
-const route = useRoute();
+const isSaving = ref(false);
+const photoInput = ref(null);
+const tempPhotoFile = ref(null);
+const isDeleteMode = ref(false);
 
-const selectedSauna = computed(() =>
-    saunaList.value.find(s => s.id === selectedSaunaId.value)
-);
+const selectedSauna = computed(() => saunaList.value.find((s) => s.id === selectedSaunaId.value));
 
 const editForm = reactive({
   description: '',
   images: [],
 });
 
+const isChanged = computed(() => {
+  if (!sauna.value) return false;
+
+  const descChanged = editForm.description !== sauna.value.description;
+  const imagesChanged = !arraysEqual(editForm.images, sauna.value.pictures);
+
+  return descChanged || imagesChanged;
+});
+
 async function selectSauna(id) {
   selectedSaunaId.value = id;
   selectedPhotoIndex.value = 0;
 
-  const response = await SaunaInfo(id);
-  if (response.status === 200) {
-    sauna.value = response.data.data;
+  const response = await saunaInfo(id);
+  if (response.status === 200 && Array.isArray(response.data) && response.data.length > 0) {
+    sauna.value = response.data[0];
     editForm.description = sauna.value.description || '';
-    editForm.images = Array.isArray(sauna.value.pictures)
-        ? [...sauna.value.pictures]
-        : [];
+    editForm.images = Array.isArray(sauna.value.pictures) ? [...sauna.value.pictures] : [];
+  }
+}
+
+async function saveChanges() {
+  if (!selectedSaunaId.value || !isChanged.value) return;
+
+  isSaving.value = true;
+
+    if (tempPhotoFile.value) {
+      const uploadedUrl = await uploadPhoto(selectedSaunaId.value, tempPhotoFile.value);
+      editForm.images[selectedPhotoIndex.value] = uploadedUrl;
+      tempPhotoFile.value = null;
+    }
+    await saunaUpdate({
+      id: selectedSaunaId.value,
+      description: editForm.description,
+      images: editForm.images,
+    });
+
+    if (sauna.value) {
+      sauna.value.description = editForm.description;
+      sauna.value.pictures = [...editForm.images];
+    }
+
+    ElNotification({
+      title: 'Успешно',
+      message: 'Изменения сохранены.',
+      type: 'success',
+      duration: 3000,
+    });
+  isSaving.value = false;
+}
+
+function triggerPhotoInput() {
+  photoInput.value.click();
+}
+
+function arraysEqual(arr1, arr2) {
+  if (!Array.isArray(arr1) || !Array.isArray(arr2)) return false;
+  if (arr1.length !== arr2.length) return false;
+
+  return arr1.every((value, index) => value === arr2[index]);
+}
+
+function handlePhotoUpload(event) {
+  const file = event.target.files[0];
+  if (file) {
+    tempPhotoFile.value = file;
+    editForm.images[selectedPhotoIndex.value] = URL.createObjectURL(file);
   }
 }
 
 function nextPhoto() {
+  isDeleteMode.value = false;
   if (selectedPhotoIndex.value < editForm.images.length) {
     selectedPhotoIndex.value++;
   } else {
@@ -43,6 +101,7 @@ function nextPhoto() {
 }
 
 function prevPhoto() {
+  isDeleteMode.value = false;
   if (selectedPhotoIndex.value > 0) {
     selectedPhotoIndex.value--;
   } else {
@@ -50,33 +109,44 @@ function prevPhoto() {
   }
 }
 
+function toggleDeleteMode() {
+  isDeleteMode.value = !isDeleteMode.value;
+}
+
 function addPhoto() {
-  editForm.images.push('');
-  selectedPhotoIndex.value = editForm.images.length - 1;
+  nextTick(() => {
+    triggerPhotoInput();
+  });
 }
 
-function removePhoto(index) {
-  editForm.images.splice(index, 1);
-  if (selectedPhotoIndex.value >= editForm.images.length) {
-    selectedPhotoIndex.value = editForm.images.length - 1;
-  }
-}
+async function removePhoto(index) {
+  if (index < 0 || index >= editForm.images.length) return;
 
-function saveChanges() {
-  const sauna = saunaList.value.find(s => s.id === selectedSaunaId.value);
-  if (sauna) {
-    sauna.description = editForm.description;
-    sauna.images = [...editForm.images];
-    alert('Изменения сохранены!');
-  }
+  const photoUrl = editForm.images[index];
+    await deletePhotoFromServer(selectedSaunaId.value, photoUrl);
+
+    editForm.images.splice(index, 1);
+
+    if (selectedPhotoIndex.value >= editForm.images.length) {
+      selectedPhotoIndex.value = Math.max(editForm.images.length - 1, 0);
+    }
+
+    ElNotification({
+      title: 'Фото удалено',
+      message: 'Фотография успешно удалена.',
+      type: 'success',
+      duration: 3000,
+    });
+    isDeleteMode.value = false;
 }
 
 onMounted(async () => {
   const response = await getSaunas();
+
   if (response.success) {
-    saunaList.value = response.data.map(s => ({
+    saunaList.value = response.data.map((s) => ({
       ...s,
-      images: s.picture
+      preview: s.picture
           ? Array.isArray(s.picture)
               ? s.picture
               : [s.picture]
@@ -102,7 +172,7 @@ onMounted(async () => {
             :class="{ active: sauna.id === selectedSaunaId }"
             @click="selectSauna(sauna.id)"
         >
-          <img :src="sauna.images[0]" alt="preview" />
+          <img :src="sauna.preview" alt="preview" />
           <span>{{ sauna.name }}</span>
         </li>
       </ul>
@@ -112,16 +182,8 @@ onMounted(async () => {
       <h1 class="bathhouse-name">{{ selectedSauna?.name }}</h1>
 
       <div class="photo-gallery">
-        <button
-            @click="prevPhoto"
-            class="nav-button left"
-            aria-label="Назад"
-        >
-          <img
-              src="/images/back.png"
-              alt="назад"
-              class="arrow-icon"
-          />
+        <button @click="prevPhoto" class="nav-button left" aria-label="Назад">
+          <img src="/images/back.png" alt="назад" class="arrow-icon" />
         </button>
 
         <div class="photo-wrapper">
@@ -131,28 +193,40 @@ onMounted(async () => {
               <p>Добавить фото</p>
             </div>
           </template>
+
           <template v-else>
-            <img
-                :src="editForm.images[selectedPhotoIndex]"
-                alt="photo"
-                class="main-photo"
-            />
+            <div class="photo-container" @click="toggleDeleteMode">
+              <img
+                  :src="editForm.images[selectedPhotoIndex]"
+                  alt="photo"
+                  class="main-photo"
+                  :class="{ blurred: isDeleteMode }"
+              />
+              <button
+                  v-if="isDeleteMode"
+                  class="center-delete-button"
+                  @click.stop="removePhoto(selectedPhotoIndex)"
+              >
+                🗑 Удалить фото
+              </button>
+            </div>
           </template>
+
+          <input
+              ref="photoInput"
+              type="file"
+              accept="image/*"
+              class="hidden-file-input"
+              @change="handlePhotoUpload"
+              style="display: none;"
+          />
         </div>
 
-        <button
-            @click="nextPhoto"
-            class="nav-button right"
-            aria-label="Вперёд"
-        >
-          <img
-              src="/images/back.png"
-              alt="вперёд"
-              class="arrow-icon"
-          />
+        <button @click="nextPhoto" class="nav-button right" aria-label="Вперёд">
+          <img src="/images/back.png" alt="вперёд" class="arrow-icon" />
         </button>
-      </div>
 
+      </div>
       <div class="photo-counter">
         <template v-if="selectedPhotoIndex === editForm.images.length">
           {{ editForm.images.length + 1 }} / {{ editForm.images.length + 1 }}
@@ -161,13 +235,11 @@ onMounted(async () => {
           {{ selectedPhotoIndex + 1 }} / {{ editForm.images.length + 1 }}
         </template>
       </div>
-
       <div class="edit-form">
         <label>Описание:</label>
         <textarea v-model="editForm.description" rows="6" />
-
-        <button class="save-button" @click="saveChanges">
-          Сохранить изменения
+        <button class="save-button" :disabled="!isChanged" @click="saveChanges">
+          {{ isSaving ? 'Сохранение...' : 'Сохранить изменения' }}
         </button>
       </div>
     </div>
@@ -205,6 +277,40 @@ onMounted(async () => {
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.photo-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.blurred {
+  filter: blur(3px) brightness(0.6);
+  transition: filter 0.3s ease;
+}
+
+.center-delete-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(231, 76, 60, 0.9);
+  color: #fff;
+  border: none;
+  padding: 14px 24px;
+  font-size: 18px;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 10;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.center-delete-button:hover {
+  background: rgba(192, 57, 43, 0.95);
 }
 
 .bathhouse-selector ul {
@@ -284,7 +390,7 @@ onMounted(async () => {
   font-size: 36px;
   font-weight: 900;
   margin-top: 5px;
-  margin-left: 15px;
+  margin-left: 42px;
   color: #2c3e50;
   user-select: none;
   position: relative;
@@ -465,6 +571,15 @@ onMounted(async () => {
   border-color: #27ae60;
   box-shadow: 0 0 10px rgba(39, 174, 96, 0.25);
   outline: none;
+}
+
+.save-button:disabled {
+  background-color: #ccc !important;
+  color: #888 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+  transform: none !important;
+  pointer-events: none !important;
 }
 
 .save-button {

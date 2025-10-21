@@ -5,13 +5,13 @@ function getAuthHeaders() {
     return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
-export function SaunaInfo(id) {
+export function saunaInfo(id) {
     return axios.get(`http://tytsauna.loc:8080/api/saunaInfo/${id}`, {
         headers: getAuthHeaders(),
     });
 }
 
-export function SaunaCoordinates(id) {
+export function saunaCoordinates(id) {
     return axios.get(`http://tytsauna.loc:8080/api/coordinates/${id}`, {
         headers: getAuthHeaders(),
     });

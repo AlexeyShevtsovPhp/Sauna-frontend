@@ -1,7 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue';
 import L from 'leaflet';
-import { SaunaCoordinates } from '../requestJS/SaunaInfo.js'
+import { saunaCoordinates } from '../requestJS/SaunaInfo.js'
 import { useRoute } from 'vue-router';
 
 const route = useRoute();
@@ -12,7 +12,7 @@ onMounted(() => {
 
   const saunaId = route.params.id;
 
-  SaunaCoordinates(saunaId).then(response => {
+  saunaCoordinates(saunaId).then(response => {
     if (response.status === 200) {
       saunaCoords.value = [response.data.latitude, response.data.longitude];
 
