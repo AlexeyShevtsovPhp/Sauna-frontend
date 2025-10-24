@@ -5,7 +5,8 @@ export default {
   data() {
     return {
       avatar: '',
-      role: ''
+      role: '',
+      name: '',
     }
   },
   methods: {
@@ -28,6 +29,8 @@ export default {
         this.avatar = response.user.avatar;
         this.role = response.user.role;
         localStorage.setItem('role', response.user.role);
+        localStorage.setItem('avatar', response.user.avatar);
+        localStorage.setItem('name', response.user.name);
       }
     });
   }
@@ -48,6 +51,9 @@ export default {
           </li>
           <li>
             <router-link to="/contacts">Контакты</router-link>
+          </li>
+          <li>
+            <router-link to="/payment">Брони</router-link>
           </li>
           <li class="contacts-with-avatar">
             <img
@@ -90,7 +96,7 @@ export default {
 .developer-icon {
   width: 43px;
   height: 43px;
-  margin-left: -227px;
+  margin-left: -305px;
   margin-top: -3px;
   cursor: pointer;
   border-radius: 6px;
@@ -112,7 +118,7 @@ export default {
 }
 
 .header-nav {
-  margin-left: 1400px;
+  margin-left: 1330px;
   position: absolute;
 }
 

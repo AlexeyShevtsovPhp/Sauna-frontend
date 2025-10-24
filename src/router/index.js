@@ -11,6 +11,7 @@ import SaunaMap from "../components/SaunaMap.vue";
 import AdminPanel from "../components/AdminPanel.vue";
 import UserManage from "../components/UserManage.vue";
 import SaunaManage from "../components/SaunaManage.vue";
+import Pay from "../components/Pay.vue";
 
 const routes = [
     {
@@ -83,6 +84,16 @@ const routes = [
                     requiresAuth: true,
                     requiresAdmin: true,
                     title: 'Панель разработчика'
+                }
+            },
+
+            {
+                path: 'payment',
+                component: Pay,
+                name: 'Pay',
+                meta: {
+                    requiresAuth: true,
+                    title: 'Оплата'
                 }
             },
 

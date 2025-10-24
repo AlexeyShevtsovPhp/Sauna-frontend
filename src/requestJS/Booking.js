@@ -50,3 +50,26 @@ export async function getProfileBooking4Admin(userId) {
     return await response.json();
 }
 
+export async function blockBookings(bookings) {
+    return fetch(`http://tytsauna.loc:8080/api/block`, {
+        method: 'POST',
+        headers: {
+            ...getAuthHeaders(),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bookings),
+    }).then(res => res.json());
+}
+
+export async function clearBlockedBookings(bookings) {
+    return fetch(`http://tytsauna.loc:8080/api/clear-blocked`, {
+        method: 'POST',
+        headers: {
+            ...getAuthHeaders(),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(bookings),
+    }).then(res => res.json());
+}
+
+

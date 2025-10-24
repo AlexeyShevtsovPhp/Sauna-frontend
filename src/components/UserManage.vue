@@ -119,7 +119,6 @@ async function toggleBlockUser() {
   }
 }
 
-
 async function loadUsers() {
   const response = await getUsers();
   if (response.success && Array.isArray(response.users)) {

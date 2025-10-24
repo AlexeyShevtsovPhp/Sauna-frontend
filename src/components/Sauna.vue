@@ -1,10 +1,15 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import {useRoute, useRouter} from 'vue-router';
+import { computed, onMounted, ref } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { saunaInfo } from '../requestJS/SaunaInfo.js';
-import { fetchBookingsByDate, sendBookings } from "../requestJS/Booking.js";
+import { fetchBookingsByDate } from "../requestJS/Booking.js";
 import { ElNotification } from 'element-plus';
+import { sendSaunaRating } from '../requestJS/Rating.js';
+import { createComment, fetchComments } from '../requestJS/Comments.js';
+import { nextTick } from 'vue';
 
+const userRating = ref(0);
+const hoverRating = ref(0);
 const photos = ref([]);
 const sauna = ref(null);
 const currentIndex = ref(0);
@@ -12,6 +17,79 @@ const timeSlots = ref([]);
 const selectedDate = ref(new Date().toISOString().split('T')[0]);
 const router = useRouter();
 const route = useRoute();
+const userAvatar = localStorage.getItem('avatar');
+const userName = localStorage.getItem('name');
+
+const averageRating = ref(0);
+const saunaId = Number(route.params.id);
+
+const userReview = ref('');
+const reviews = ref([]);
+
+const currentPage = ref(1);
+const totalPages = ref(1);
+const pages = ref([]);
+
+async function submitReview() {
+  if (userReview.value.trim() === '') return;
+  await createComment(saunaId, userReview.value);
+
+  ElNotification({
+    title: 'Спасибо!',
+    message: 'Ваш отзыв был отправлен!',
+    type: 'success',
+    offset: 50,
+  });
+
+  userReview.value = '';
+  await loadComments();
+
+  if (reviews.value.length >= 5) {
+    currentPage.value = totalPages.value;
+    await loadComments();
+  }
+}
+
+async function loadComments() {
+  const response = await fetchComments(saunaId, currentPage.value);
+  reviews.value = response.data.data;
+  totalPages.value = response.data.meta.last_page;
+  pages.value = Array.from({ length: totalPages.value }, (_, index) => index + 1);
+}
+
+function changePage(page) {
+  if (page < 1 || page > totalPages.value) return;
+  currentPage.value = page;
+  loadComments();
+}
+
+nextTick(() => {
+  const currentPageBtn = document.querySelector('.page-btn.active');
+  if (currentPageBtn) {
+    currentPageBtn.focus();
+  }
+});
+
+const visiblePages = computed(() => {
+  const maxVisible = 5;
+  const range = [];
+
+  let startPage = Math.max(1, currentPage.value - 2);
+  let endPage = Math.min(totalPages.value, currentPage.value + 2);
+
+  if (currentPage.value <= 3) {
+    endPage = Math.min(maxVisible, totalPages.value);
+  } else if (currentPage.value >= totalPages.value - 2) {
+    startPage = Math.max(totalPages.value - maxVisible + 1, 1);
+  }
+
+  for (let i = startPage; i <= endPage; i++) {
+    range.push(i);
+  }
+
+  return range;
+});
+
 
 function prevPhoto() {
   currentIndex.value = (currentIndex.value - 1 + photos.value.length) % photos.value.length;
@@ -23,6 +101,23 @@ function nextPhoto() {
 
 function goToMap() {
   router.push({ name: 'saunaOnMap', params: { id: sauna.value.id } });
+}
+
+function goToPay() {
+  router.push({ name: 'Pay' });
+}
+
+async function rate(value) {
+  userRating.value = value;
+
+  await sendSaunaRating(saunaId, value);
+
+  ElNotification({
+    title: 'Спасибо!',
+    message: `Вы поставили ${value}★`,
+    type: 'success',
+    offset: 50,
+  });
 }
 
 function formatLocalDateTime(date) {
@@ -53,8 +148,10 @@ async function updateSlots() {
     for (let h = startHour; h < endHour; h++) {
       const slot = slots.find(s => s.id === `${selectedDate.value}-${h}`);
       if (slot) {
-        slot.available = false;
-        slot.selected = false;
+        if (booking.paid === 1 || booking.blocked === 1) {
+          slot.available = false;
+          slot.selected = false;
+        }
       }
     }
   });
@@ -86,40 +183,36 @@ function bookSauna() {
 
     return {
       sauna_id: sauna.value.id,
+      sauna_name: sauna.value.name,
       start_time: formatLocalDateTime(start),
       end_time: formatLocalDateTime(end),
+      blocked: 1,
+      paid: 0,
     };
   });
 
-  sendBookings(bookings)
-      .then(() => {
-        ElNotification({
-          title: 'Успех',
-          message: 'Бронирование успешно!',
-          type: 'success',
-          offset: 50,
-        });
-        updateSlots();
-      })
-      .catch(() => {
-        ElNotification({
-          title: 'Ошибка',
-          message: 'Ошибка при бронировании',
-          type: 'error',
-          offset: 50,
-        });
-      });
+  localStorage.setItem('selectedBookings', JSON.stringify(bookings));
+
+  goToPay();
 }
 
 onMounted(() => {
+  // Прокручиваем страницу в начало
+  window.scrollTo(0, 0);
+
   const saunaId = route.params.id;
   saunaInfo(saunaId).then(response => {
     if (response.status === 200) {
-      sauna.value = response.data[0];
+      const data = response.data[0];
+
+      sauna.value = data.sauna;
       photos.value = Array.isArray(sauna.value.pictures) ? sauna.value.pictures : [];
+      averageRating.value = data.rating.averageRating;
+      userRating.value = data.rating.userRating;
       updateSlots();
     }
   });
+  loadComments();
 });
 
 const currentPhoto = computed(() => photos.value[currentIndex.value] || '');
@@ -128,7 +221,6 @@ const currentPhoto = computed(() => photos.value[currentIndex.value] || '');
 
 <template>
   <div class="sauna-page">
-
     <div class="photo-gallery">
       <button @click="prevPhoto" class="nav-button left" aria-label="Назад">
         <img src="/images/back.png" alt="назад" class="arrow-icon" />
@@ -146,13 +238,42 @@ const currentPhoto = computed(() => photos.value[currentIndex.value] || '');
     </div>
 
     <div class="info-panel" v-if="sauna">
-
       <div class="sauna-header">
         <h2 class="sauna-title">{{ sauna.name }}</h2>
         <a href="#" @click.prevent="goToMap" class="map-link">На карте</a>
       </div>
 
       <p class="sauna-description">{{ sauna.description }}</p>
+
+      <div class="sauna-details">
+        <div class="detail-item">
+          <img src="/images/coin.png" alt="Цена" class="detail-icon" />
+          <span>Стоимость: <strong>{{ sauna.lowPrice }} – {{ sauna.highPrice }} руб/час</strong></span>
+        </div>
+        <div class="detail-item">
+          <img src="/images/people.png" alt="Вместимость" class="detail-icon" />
+          <span>Вместимость: <strong>до {{ sauna.size }} человек</strong></span>
+        </div>
+      </div>
+
+      <div class="rating-block">
+        <div class="rating-stars">
+          <img
+              v-for="n in 5"
+              :key="n"
+              :src="n <= (hoverRating || userRating) ? '/images/star.png' : '/images/starVoid.png'"
+              class="star-icon"
+              @mouseover="hoverRating = n"
+              @mouseleave="hoverRating = 0"
+              @click="rate(n)"
+              alt="звезда"
+          />
+        </div>
+
+        <div v-if="averageRating !== 0" class="average-rating">
+          <span>Средний рейтинг: {{ averageRating }}★</span>
+        </div>
+      </div>
 
       <h3>Выберите дату и время бронирования:</h3>
 
@@ -192,7 +313,84 @@ const currentPhoto = computed(() => photos.value[currentIndex.value] || '');
         </div>
       </form>
     </div>
+  </div>
 
+  <div class="reviews-section">
+    <h3>Оставьте ваш отзыв</h3>
+
+    <form class="review-form">
+      <textarea
+          v-model="userReview"
+          placeholder="Напишите ваш отзыв о бане..."
+          rows="4"
+          class="review-textarea"
+      ></textarea>
+
+      <button type="submit" @click.prevent="submitReview" class="submit-review-btn">Отправить отзыв</button>
+    </form>
+
+    <div v-if="reviews.length > 0" class="reviews-list">
+      <div v-for="(review, index) in reviews" :key="index" class="review-item">
+        <div class="review-header">
+          <img :src="review.user?.avatar || userAvatar" alt="User" class="review-user-icon" />
+          <span class="review-author">{{ review.user.name || userName }}</span>
+        </div>
+        <p class="review-text">{{ review.comment }}</p>
+      </div>
+    </div>
+
+    <div v-else>
+      <p>Отзывов пока нет. Будьте первым, кто оставит отзыв!</p>
+    </div>
+
+    <div v-if="totalPages > 1" class="pagination">
+      <button
+          @click="changePage(1)"
+          :disabled="currentPage === 1"
+          class="pagination-btn"
+          ref="firstPageBtn"
+      >
+        &laquo; Первая
+      </button>
+
+      <button
+          @click="changePage(currentPage - 1)"
+          :disabled="currentPage === 1"
+          class="pagination-btn"
+          ref="prevPageBtn"
+      >
+        &laquo; Назад
+      </button>
+
+      <span v-for="page in visiblePages" :key="page" class="pagination-page">
+        <button
+            @click="changePage(page)"
+            :class="{ active: page === currentPage }"
+            class="page-btn"
+            :ref="page === currentPage ? 'currentPageBtn' : ''"
+        >
+          {{ page }}
+        </button>
+      </span>
+
+      <button
+          @click="changePage(currentPage + 1)"
+          :disabled="currentPage === totalPages"
+          class="pagination-btn"
+          ref="nextPageBtn"
+      >
+        Вперёд &raquo;
+      </button>
+
+      <button
+          @click="changePage(totalPages)"
+          :disabled="currentPage === totalPages"
+          class="pagination-btn"
+          ref="lastPageBtn"
+      >
+        Последняя &raquo;
+      </button>
+    </div>
   </div>
 </template>
 
@@ -203,6 +401,37 @@ body {
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
+.rating-block {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-left: 5px;
+  margin-top: -25px;
+}
+
+.rating-stars {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.star-icon {
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  transition: transform 0.2s, filter 0.2s;
+}
+
+.star-icon:hover {
+  transform: scale(1.1);
+  filter: brightness(1.05);
+}
+
+.average-rating {
+  font-size: 1rem;
+  color: #555;
+  margin-top: 0.5rem;
+}
+
 .arrow-icon {
   width: 25px;
   height: 25px;
@@ -211,6 +440,48 @@ body {
   margin: auto;
   user-select: none;
   pointer-events: none;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 20px;
+}
+
+.pagination-btn {
+  padding: 5px 10px;
+  margin: 0 5px;
+  background-color: #f1f1f1;
+  border: 1px solid #ddd;
+  cursor: pointer;
+}
+
+.pagination-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.pagination-page {
+  margin: 0 5px;
+}
+
+.page-btn {
+  padding: 5px 10px;
+  background-color: #f1f1f1;
+  border: 1px solid #ddd;
+  cursor: pointer;
+  width: 38px;
+}
+
+.page-btn.active {
+  background-color: #007bff;
+  color: white;
+  width: 38px;
+}
+
+.page-btn:hover {
+  background-color: #ddd;
 }
 
 .sauna-header {
@@ -258,6 +529,39 @@ input:disabled + .slider:before {
   background: #eee;
   transform: translateX(22px);
 }
+
+.sauna-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin: 1rem 0 1.5rem 0;
+  padding: 1rem 1.5rem;
+  background: #f9f9f9;
+  border-radius: 12px;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+  margin-top: -9px;
+}
+
+.detail-item {
+  display: flex;
+  align-items: center;
+  font-size: 1.1rem;
+  color: #333;
+  gap: 0.5rem;
+}
+
+.detail-item strong {
+  color: #1e7a32;
+  font-weight: 600;
+}
+
+.detail-icon {
+  width: 28px;
+  height: 28px;
+  opacity: 0.85;
+}
+
 
 .book-button-container {
   margin-top: 2rem;
@@ -476,4 +780,141 @@ input:checked + .slider:before {
   background: #eee;
   transform: translateX(22px);
 }
+
+.sauna-page {
+  display: flex;
+  max-width: 1200px;
+  margin: 4rem auto;
+  gap: 2rem;
+  padding: 2rem;
+  border: 2px solid #f0eae2;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  background: #fffefc;
+  background-clip: padding-box;
+}
+
+.reviews-section {
+  margin-top: 3rem;
+  padding: 2rem;
+  background-color: #f9f9f9;
+  border-radius: 12px;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.reviews-section h3 {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-bottom: 1rem;
+  text-align: center;
+  padding-bottom: 35px;
+}
+
+.review-form {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  flex-direction: column;
+}
+
+.review-textarea {
+  max-width: 1300px;
+  height: 180px;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 1rem;
+  resize: none;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #f5f5f5;
+  width: 100%;
+}
+
+.user-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.review-textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(181, 243, 154, 0.6);
+}
+
+.submit-review-btn {
+  padding: 0.8rem 2rem;
+  background: linear-gradient(135deg, #48c60f, #429a53);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  box-shadow: 0 6px 15px rgba(86, 171, 47, 0.5);
+  transition: background 0.4s ease, transform 0.2s ease;
+  align-self: flex-start;
+}
+
+.submit-review-btn:hover {
+  background: linear-gradient(135deg, #54b823, #84d63c);
+  box-shadow: 0 8px 20px rgba(78, 159, 39, 0.7);
+  transform: translateY(-2px);
+}
+
+.submit-review-btn:active {
+  transform: translateY(1px);
+}
+
+.reviews-list {
+  margin-top: 1rem;
+}
+
+.review-item {
+  padding: 1rem;
+  background: #fff;
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.review-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.review-user-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.review-author {
+  font-weight: bold;
+  color: #333;
+}
+
+.review-text {
+  margin-top: 1rem;
+  font-size: 1rem;
+  color: #555;
+  text-align: justify;
+}
+
+.reviews-list p {
+  font-size: 1.1rem;
+  color: #6c757d;
+  line-height: 1.7;
+  padding: 16px;
+  margin-bottom: 18px;
+  background-color: #f4f8fb;
+  border-left: 5px solid #84aa74;
+  border-radius: 8px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  font-family: 'Roboto', sans-serif;
+}
+
 </style>
